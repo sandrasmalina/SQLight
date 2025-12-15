@@ -50,7 +50,15 @@ function executeSelect(query) {
   const selectPart = parts[1];
   const table = parts[3];
 
-  let req = new MySqliteRequest().from(table);
+  let fileContent;
+  try {
+    fileContent = fs.readFileSync(table, 'utf8');
+  } catch (err) {
+    console.log(`Error reading table ${table}:`, err.message);
+    return;
+  }
+
+  let req = new MySqliteRequest({ [table]: fileContent }).from(table);
 
   if (selectPart !== "*") {
     req = req.select(selectPart.split(","));
@@ -77,14 +85,24 @@ function executeInsert(query) {
   const valuesPart = query.match(/\((.*?)\)/)[1];
   const values = valuesPart.split(",").map(v => v.trim());
 
-  const headers = fs.readFileSync(table, "utf8").split("\n")[0].split(",");
+  let fileContent;
+  try {
+    fileContent = fs.readFileSync(table, "utf8");
+  } catch (e) {
+    // If file doesn't exist, we might want to create it, but for now assuming it exists like existing code does
+    fileContent = "";
+  }
 
+  const headers = fileContent.split("\n")[0].split(",");
   const data = {};
   headers.forEach((h, i) => {
     data[h] = values[i];
   });
 
-  new MySqliteRequest().insert(table).values(data).run();
+  const req = new MySqliteRequest({ [table]: fileContent });
+  req.insert(table).values(data).run();
+
+  fs.writeFileSync(table, req.csvData[table]);
 }
 
 // -------------------------------------
@@ -104,11 +122,22 @@ function executeUpdate(query) {
   const wherePart = query.split("WHERE")[1].trim();
   const [col, val] = wherePart.split("=");
 
-  new MySqliteRequest()
+  let fileContent;
+  try {
+    fileContent = fs.readFileSync(table, 'utf8');
+  } catch (err) {
+    console.log(`Error reading table ${table}:`, err.message);
+    return;
+  }
+
+  const req = new MySqliteRequest({ [table]: fileContent });
+  req
     .update(table)
     .set(updates)
     .where(col.trim(), val.replace(/[';]/g, "").trim())
     .run();
+
+  fs.writeFileSync(table, req.csvData[table]);
 }
 
 // -------------------------------------
@@ -120,9 +149,20 @@ function executeDelete(query) {
   const wherePart = query.split("WHERE")[1].trim();
   const [col, val] = wherePart.split("=");
 
-  new MySqliteRequest()
+  let fileContent;
+  try {
+    fileContent = fs.readFileSync(table, 'utf8');
+  } catch (err) {
+    console.log(`Error reading table ${table}:`, err.message);
+    return;
+  }
+
+  const req = new MySqliteRequest({ [table]: fileContent });
+  req
     .from(table)
     .where(col.trim(), val.replace(/[';]/g, "").trim())
     .delete()
     .run();
+
+  fs.writeFileSync(table, req.csvData[table]);
 }
