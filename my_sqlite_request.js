@@ -110,7 +110,7 @@ class MySqliteRequest {
     if (!this.csvData[filename]) {
       throw new Error(`CSV file "${filename}" not loaded. Please load it first.`);
     }
-    const raw = this.csvData[filename].trim().split("\n");
+    const raw = this.csvData[filename].trim().split(/\r?\n/);
     const headers = raw[0].split(",");
     return raw.slice(1).map(line => {
       const values = line.split(",");
